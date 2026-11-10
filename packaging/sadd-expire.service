@@ -1,0 +1,15 @@
+# Runs once at boot: removes timed blocks that ended while the computer was
+# off, and re-creates timers for the ones still running (systemd forgets
+# timers made by "sadd block --for" when it restarts).
+# Installed by "make install"; @BINDIR@ is replaced with the real path.
+[Unit]
+Description=sadd: clean up and reschedule timed website blocks
+After=local-fs.target systemd-resolved.service
+Wants=systemd-resolved.service
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/sadd expire --reschedule
+
+[Install]
+WantedBy=multi-user.target

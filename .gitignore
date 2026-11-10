@@ -1,0 +1,3 @@
+# Built binary (only at the repo root; keep cmd/ and others)
+/sadd
+*.tmp
