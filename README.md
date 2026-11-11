@@ -24,7 +24,13 @@ instagram.com  forever
   removes the block automatically, even if the computer restarts in between.
 - **Groups:** `--group social`, `video`, `news`, `shopping`. Run
   `sadd groups` to see what each one contains.
-- **Interactive TUI:** `sudo sadd tui`.
+- **`check`** asks the system resolver (the one your browser uses) whether a
+  site really resolves to `0.0.0.0` / `::`.
+- **Interactive TUI:** just run `sudo sadd` (or `sudo sadd tui`). It has tabs for blocked sites, groups and
+  an About page. Changes happen in centered dialogs, and adding sites has a live preview.
+  `enter` shows a site's details, `space` selects several sites to unblock or extend at once, and
+  `e` adds time to a timed block. Any duration picker has a **Custom…** option (`45m`, `1h30m`, `2d`).
+  Without sudo it opens read-only.
 - **Safe by design:**
   - Lines outside its own section are never touched.
   - Every write is atomic.
@@ -67,7 +73,8 @@ sudo make uninstall
 | `sadd list` | Show what is blocked and for how long (no sudo needed) |
 | `sadd groups` | Show the built-in groups |
 | `sudo sadd restore` | Undo the last change (run it again to redo) |
-| `sudo sadd tui` | Interactive screen: `a` block, `d` unblock, `q` quit |
+| `sadd check [domain]...` | Ask the system what a site resolves to; exit code 1 if any is not blocked |
+| `sudo sadd` | Interactive screen (same as `sadd tui`): Blocked · Groups · About (`tab` or `1`-`3` to switch) |
 
 Each domain is blocked for IPv4 and IPv6, with and without `www.`:
 
@@ -119,7 +126,7 @@ Point sadd at any file with `HOSTS_FILE`. No sudo is needed for a file you own:
 ```bash
 cp /etc/hosts /tmp/hosts
 HOSTS_FILE=/tmp/hosts sadd block youtube.com
-HOSTS_FILE=/tmp/hosts sadd tui
+HOSTS_FILE=/tmp/hosts sadd
 ```
 
 `sudo` drops environment variables. If you really need both, write
@@ -133,11 +140,25 @@ make test
 
 ## Limitations
 
-- **Browser DNS caches.** Some browsers keep their own DNS cache, or use
-  DNS-over-HTTPS, which ignores `/etc/hosts`. If a site still loads, restart
-  the browser or turn off "Secure DNS" in its settings.
+- **Browser caches.** A browser that already has the site open keeps its
+  connections, and browsers keep their own DNS cache. Some use DNS-over-HTTPS,
+  which ignores `/etc/hosts`. See below.
 - **Willpower not included.** Anyone with sudo can undo a block. sadd is a
   speed bump, not a lock.
+
+## A blocked site still loads?
+
+1. Run `sadd check example.com`.
+   - **✗ not blocked:** it isn't in the list. Run `sudo sadd block example.com`.
+   - **✗ in sadd's list, but…:** something before sadd wins. Look for an
+     earlier line for the same name in `/etc/hosts`, and make sure the `hosts:`
+     line in `/etc/nsswitch.conf` contains `files`.
+   - **✓ blocked:** the system is fine. The browser is the problem (step 2).
+2. Close the browser completely (every window) and open it again. Or clear
+   its cache: `chrome://net-internals/#dns` → *Clear host cache*, then
+   `#sockets` → *Flush socket pools* (Chrome, Brave, Edge), or
+   `about:networking#dns` → *Clear DNS Cache* (Firefox).
+3. Turn off *Secure DNS* / *DNS over HTTPS* in the browser settings.
 
 ## Project layout
 
@@ -146,7 +167,7 @@ cmd/               Cobra commands (CLI only: parse input, print output)
 internal/hosts/    parse, render and atomically write the hosts file
 internal/groups/   built-in site groups
 internal/timer/    durations and systemd timers
-internal/dns/      DNS cache flush
+internal/dns/      DNS cache flush and system lookups (getent)
 internal/tui/      Bubble Tea interface
 packaging/         systemd unit installed by "make install"
 testdata/          sample hosts file for tests
