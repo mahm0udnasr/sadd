@@ -25,12 +25,26 @@ var rootCmd = &cobra.Command{
 	Short: "Block and unblock websites via /etc/hosts",
 	Long: `sadd blocks websites by managing its own section of /etc/hosts,
 between "# >>> sadd start" and "# <<< sadd end".
-Lines outside that section are never modified.`,
+Lines outside that section are never modified.
+
+Run "sadd" with no command to open the interactive screen
+(use "sudo sadd" to make changes there).`,
 	Version: version, // enables "sadd --version"
 
 	// Do not print the usage text on every runtime error (e.g. permission
 	// denied); usage is only helpful for wrong arguments.
 	SilenceUsage: true,
+
+	// "sadd" alone opens the TUI. Without a terminal (a pipe, a script)
+	// a full-screen app makes no sense, so show the help instead.
+	// No Args check here: Cobra itself reports "unknown command" for
+	// "sadd foo", because the root command has subcommands.
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
+			return cmd.Help()
+		}
+		return runTUI()
+	},
 
 	// Runs before every subcommand. When HOSTS_FILE points somewhere else,
 	// say so on stderr, so you always know which file is being changed.

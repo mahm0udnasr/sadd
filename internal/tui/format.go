@@ -17,12 +17,20 @@ func Describe(e hosts.Entry, now time.Time) string {
 	case e.Expired(now):
 		return "expired (removed on next change)"
 	default:
-		return fmt.Sprintf("until %s (%s left)", e.Until.Format("Mon 15:04"), shortDuration(e.Until.Sub(now)))
+		return fmt.Sprintf("until %s (%s left)", e.Until.Format("Mon 15:04"), ShortDuration(e.Until.Sub(now)))
 	}
 }
 
-// shortDuration rounds to minutes: "1h59m", "45m", "2d3h", "<1m".
-func shortDuration(d time.Duration) string {
+// Remaining is a compact form for the TUI: "1h35m left · until Wed 01:07".
+func Remaining(e hosts.Entry, now time.Time) string {
+	if e.Expired(now) {
+		return "expired"
+	}
+	return ShortDuration(e.Until.Sub(now)) + " left · until " + e.Until.Format("Mon 15:04")
+}
+
+// ShortDuration rounds to minutes (exported: the CLI uses it too): "1h59m", "45m", "2d3h", "<1m".
+func ShortDuration(d time.Duration) string {
 	if d < time.Minute {
 		return "<1m"
 	}

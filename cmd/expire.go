@@ -69,9 +69,11 @@ func reschedule() error {
 		return err
 	}
 	for _, at := range pending {
-		if err := scheduleExpire(exe, at); err != nil {
+		unit, err := scheduleExpire(exe, at)
+		if err != nil {
 			return err
 		}
+		fmt.Printf("Auto-unblock scheduled (systemd timer %s).\n", unit)
 	}
 	return nil
 }
