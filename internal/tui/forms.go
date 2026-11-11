@@ -28,6 +28,7 @@ const (
 	formUndo
 	formDetails
 	formExtend
+	formBlocklist
 )
 
 // formData holds the values Huh fields write into (via pointers).
@@ -41,6 +42,10 @@ type formData struct {
 	label   string        // group name, for titles and messages
 	entry   hosts.Entry   // Details / Extend (one site): the site shown
 	now     time.Time
+
+	list       Blocklist       // Blocklist dialog
+	listAction BlocklistAction // what to do with it
+	cooldown   time.Duration   // how long turning it off takes
 }
 
 // customDuration is the "Custom…" option. Real durations are never
@@ -334,6 +339,8 @@ func (m model) submitForm() (tea.Model, tea.Cmd) {
 			return m.openForm(formUnblock, newUnblockForm, &formData{domains: []string{d.entry.Domain}})
 		}
 		return m, nil
+	case formBlocklist:
+		return m.submitBlocklist(d)
 	case formExtend:
 		domains, by := d.domains, d.duration()
 		return m, m.startSaving(func() tea.Msg {

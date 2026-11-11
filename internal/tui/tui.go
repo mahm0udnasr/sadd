@@ -48,6 +48,11 @@ type Backend struct {
 	Unblock func(domains []string) (string, error)
 	Restore func() (string, error)
 
+	// Blocklists (optional): big downloaded lists, shown on the Groups tab.
+	Blocklists   func() ([]Blocklist, error)
+	SetBlocklist func(name string, a BlocklistAction) (string, error)
+	ListCooldown time.Duration // how long turning a blocklist off takes
+
 	// CanWrite is false when changes are impossible (e.g. not running with
 	// sudo). The TUI then shows READ-ONLY and refuses changes up front.
 	CanWrite     bool
@@ -82,6 +87,7 @@ type model struct {
 	entries []hosts.Entry
 	now     time.Time
 	marked  map[string]bool // sites selected with space (Blocked tab)
+	lists   []Blocklist
 
 	blockedList list.Model
 	groupList   list.Model
@@ -93,10 +99,11 @@ type model struct {
 	formKind formKind
 	data     *formData
 
-	saving   bool
-	status   string
-	isError  bool
-	statusID int // only the newest status is cleared by its timer
+	saving     bool
+	savingText string // what the spinner says; "Saving…" if empty
+	status     string
+	isError    bool
+	statusID   int // only the newest status is cleared by its timer
 }
 
 // Messages. Slow work (file I/O) runs in a tea.Cmd and reports back with a
@@ -104,6 +111,7 @@ type model struct {
 type (
 	loadedMsg struct {
 		entries []hosts.Entry
+		lists   []Blocklist
 		err     error
 	}
 	doneMsg struct {
@@ -135,7 +143,7 @@ func newModel(b Backend) model {
 		blockedList: newList("site", "sites"),
 		groupList:   newList("group", "groups"),
 	}
-	m.groupList.SetItems(groupItems(nil))
+	m.groupList.SetItems(groupItems(nil, nil, m.now))
 	m.keys.update(tabBlocked, b.CanWrite) // hide change keys in read-only mode
 	m.resize(80, 24)
 	return m
@@ -148,7 +156,11 @@ func (m model) Init() tea.Cmd {
 func (m model) load() tea.Cmd {
 	return func() tea.Msg {
 		entries, err := m.backend.Load()
-		return loadedMsg{entries, err}
+		var lists []Blocklist
+		if err == nil && m.backend.Blocklists != nil {
+			lists, err = m.backend.Blocklists()
+		}
+		return loadedMsg{entries, lists, err}
 	}
 }
 
@@ -172,16 +184,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, m.setStatus(msg.err.Error(), true)
 		}
-		m.entries, m.now = msg.entries, time.Now()
+		m.entries, m.lists, m.now = msg.entries, msg.lists, time.Now()
 		m.pruneMarks()
 		cmds := []tea.Cmd{
 			m.blockedList.SetItems(entryItems(m.entries, m.now, m.marked)),
-			m.groupList.SetItems(groupItems(m.entries)),
+			m.groupList.SetItems(groupItems(m.entries, m.lists, m.now)),
 		}
 		return m, tea.Batch(cmds...)
 
 	case doneMsg:
-		m.saving = false
+		m.saving, m.savingText = false, ""
 		var status tea.Cmd
 		if msg.err != nil {
 			status = m.setStatus(msg.err.Error(), true)
@@ -295,6 +307,13 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.tab == tabGroups {
+		if bl, ok := m.groupList.SelectedItem().(blocklistItem); ok {
+			if key.Matches(msg, m.keys.BlockGroup) || key.Matches(msg, m.keys.UnblockGroup) {
+				return m.openForm(formBlocklist, newBlocklistForm,
+					&formData{list: bl.b, now: m.now, cooldown: m.backend.ListCooldown})
+			}
+			return m.updateActive(msg)
+		}
 		it, ok := m.groupList.SelectedItem().(groupItem)
 		switch {
 		case ok && key.Matches(msg, m.keys.BlockGroup):

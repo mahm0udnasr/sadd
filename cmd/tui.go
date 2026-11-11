@@ -40,6 +40,10 @@ func runTUI() error {
 		Extend:  tuiExtend,
 		Unblock: tuiUnblock,
 		Restore: func() (string, error) { return tuiRestore(path) },
+
+		Blocklists:   blocklistStatus,
+		SetBlocklist: tuiBlocklist,
+		ListCooldown: listCooldown,
 	})
 }
 
@@ -84,6 +88,18 @@ func tuiExtend(domains []string, by time.Duration) (string, error) {
 		msg += " Skipped (not timed): " + strings.Join(out.Skipped, ", ") + "."
 	}
 	return msg + extras(out.result, out.TimerErr), nil
+}
+
+func tuiBlocklist(name string, a tui.BlocklistAction) (string, error) {
+	switch a {
+	case tui.BlocklistOn:
+		return blocklistOn(name)
+	case tui.BlocklistOff:
+		return blocklistOff(name)
+	case tui.BlocklistUpdate:
+		return blocklistUpdate([]string{name})
+	}
+	return "", nil
 }
 
 func tuiUnblock(domains []string) (string, error) {

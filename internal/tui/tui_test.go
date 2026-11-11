@@ -540,3 +540,81 @@ func TestExtendSkipsForever(t *testing.T) {
 }
 
 func stripANSI(s string) string { return ansi.Strip(s) }
+
+// ---------------------------------------------------------------- blocklists
+
+func withLists(f *fake, lists *[]Blocklist, actions *[]BlocklistAction) Backend {
+	b := f.backend(true)
+	b.ListCooldown = 10 * time.Minute
+	b.Blocklists = func() ([]Blocklist, error) { return *lists, nil }
+	b.SetBlocklist = func(name string, a BlocklistAction) (string, error) {
+		*actions = append(*actions, a)
+		l := &(*lists)[0]
+		switch a {
+		case BlocklistOn:
+			l.On, l.Domains, l.OffAt = true, 76801, time.Time{}
+		case BlocklistOff:
+			l.OffAt = time.Now().Add(10 * time.Minute)
+		}
+		return "done", nil
+	}
+	return b
+}
+
+func TestBlocklistDialog(t *testing.T) {
+	lists := []Blocklist{{Name: "porn", Title: "Porn blocker", About: "lots of sites"}}
+	var actions []BlocklistAction
+	m := newModel(withLists(&fake{}, &lists, &actions))
+	m = drive(m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = drive(m, m.load()())
+
+	m = keys(m, "2")
+	if v := m.View(); !strings.Contains(v, "Porn blocker") || !strings.Contains(v, "off · lots of sites") {
+		t.Fatalf("blocklist row missing:\n%s", v)
+	}
+
+	// Off -> enter -> "Turn on" is the default.
+	m = keys(m, "enter")
+	if !strings.Contains(m.View(), "Porn blocker is off") {
+		t.Fatalf("dialog:\n%s", m.View())
+	}
+	m = keys(m, "enter")
+	if len(actions) != 1 || actions[0] != BlocklistOn {
+		t.Fatalf("actions = %v", actions)
+	}
+	if !strings.Contains(m.View(), "✓ on · 76,801 sites") {
+		t.Errorf("row not updated:\n%s", m.View())
+	}
+
+	// On -> the default is Close: enter, enter does nothing.
+	m = keys(m, "enter", "enter")
+	if len(actions) != 1 {
+		t.Fatalf("Close ran an action: %v", actions)
+	}
+
+	// Turn off is the last option and only starts the cooldown.
+	m = keys(m, "enter", "down", "down", "enter")
+	if actions[len(actions)-1] != BlocklistOff || !strings.Contains(m.View(), "turning off in") {
+		t.Fatalf("actions = %v\n%s", actions, m.View())
+	}
+
+	// While turning off, the default is "Keep it on".
+	m = keys(m, "enter", "enter")
+	if actions[len(actions)-1] != BlocklistOn {
+		t.Errorf("actions = %v", actions)
+	}
+}
+
+func TestBlocklistReadOnly(t *testing.T) {
+	lists := []Blocklist{{Name: "porn", Title: "Porn blocker"}}
+	var actions []BlocklistAction
+	b := withLists(&fake{}, &lists, &actions)
+	b.CanWrite = false
+	m := newModel(b)
+	m = drive(m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m = drive(m, m.load()())
+	m = keys(m, "2", "enter")
+	if m.form != nil || !strings.Contains(m.status, "use sudo") {
+		t.Errorf("form=%v status=%q", m.form != nil, m.status)
+	}
+}

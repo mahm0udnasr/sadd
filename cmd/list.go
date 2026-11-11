@@ -22,6 +22,17 @@ var listCmd = &cobra.Command{
 			return err
 		}
 
+		// Blocklists that are on come last; "sadd blocklist" has details.
+		defer func() {
+			for _, l := range f.Lists() {
+				state := "on"
+				if l.TurningOff() {
+					state = "turning off at " + l.OffAt.Format("15:04")
+				}
+				fmt.Printf("+ %s blocklist: %s sites (%s)\n", l.Name, tui.Thousands(l.Domains), state)
+			}
+		}()
+
 		entries := f.Entries()
 		if len(entries) == 0 {
 			fmt.Println("No websites are blocked.")

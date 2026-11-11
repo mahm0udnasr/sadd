@@ -54,10 +54,20 @@ func reschedule() error {
 	now := time.Now()
 	seen := make(map[int64]bool)
 	var pending []time.Time
+	add := func(at time.Time) {
+		if at.After(now) && !seen[at.Unix()] {
+			seen[at.Unix()] = true
+			pending = append(pending, at)
+		}
+	}
 	for _, e := range f.Entries() {
-		if e.Timed() && e.Until.After(now) && !seen[e.Until.Unix()] {
-			seen[e.Until.Unix()] = true
-			pending = append(pending, e.Until)
+		if e.Timed() {
+			add(e.Until)
+		}
+	}
+	for _, l := range f.Lists() { // blocklists in their turn-off cooldown
+		if l.TurningOff() {
+			add(l.OffAt)
 		}
 	}
 	if len(pending) == 0 {

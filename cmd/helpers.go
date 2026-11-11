@@ -69,7 +69,8 @@ type result struct {
 }
 
 // update is the one place that changes the hosts file:
-// load -> drop expired timed blocks -> apply change -> save (only if needed).
+// load -> drop expired timed blocks and blocklists -> apply change -> save
+// (only if needed).
 // Both the CLI commands and the TUI use it.
 func update(change func(f *hosts.File) []string) (result, error) {
 	path := hosts.Path()
@@ -79,7 +80,9 @@ func update(change func(f *hosts.File) []string) (result, error) {
 	}
 
 	var r result
-	r.Expired = f.Expire(time.Now())
+	now := time.Now()
+	// Timed blocks whose time is up, and blocklists whose cooldown ended.
+	r.Expired = append(f.Expire(now), f.ExpireLists(now)...)
 	if change != nil {
 		r.Changed = change(&f)
 	}

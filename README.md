@@ -24,6 +24,11 @@ instagram.com  forever
   removes the block automatically, even if the computer restarts in between.
 - **Groups:** `--group social`, `video`, `news`, `shopping`. Run
   `sadd groups` to see what each one contains.
+- **Porn blocker:** `sudo sadd blocklist on porn` downloads the
+  [StevenBlack](https://github.com/StevenBlack/hosts) porn list (about 77,000
+  sites) into its own section of `/etc/hosts`. Turning it **off takes 10
+  minutes**; turning it on again during that time cancels. In the TUI it is
+  the first row on the Groups tab.
 - **`check`** asks the system resolver (the one your browser uses) whether a
   site really resolves to `0.0.0.0` / `::`.
 - **Interactive TUI:** just run `sudo sadd` (or `sudo sadd tui`). It has tabs for blocked sites and groups.
@@ -73,6 +78,10 @@ sudo make uninstall
 | `sadd list` | Show what is blocked and for how long (no sudo needed) |
 | `sadd groups` | Show the built-in groups |
 | `sudo sadd restore` | Undo the last change (run it again to redo) |
+| `sadd blocklist` | Show the blocklists and whether they are on |
+| `sudo sadd blocklist on porn` | Download the porn list and turn it on (or cancel turning it off) |
+| `sudo sadd blocklist off porn` | Turn it off after a 10-minute cooldown |
+| `sudo sadd blocklist update` | Download the newest version of the lists that are on |
 | `sadd check [domain]...` | Ask the system what a site resolves to; exit code 1 if any is not blocked |
 | `sudo sadd` | Interactive screen (same as `sadd tui`): Blocked · Groups (`tab` or `1`/`2` to switch) |
 
@@ -104,6 +113,12 @@ sadd keeps everything between two markers in `/etc/hosts`:
 # <<< sadd end
 ```
 
+- **Blocklists** get their own section (`# >>> sadd blocklist porn` …
+  `# <<< sadd blocklist porn`), so they show as one item, not 77,000. The
+  download is never copied as-is: a hosts file can *redirect* a name, not
+  just block it, so sadd keeps only the domain names, checks each one, and
+  writes the `0.0.0.0` / `::` lines itself. Lines with any other address are
+  dropped.
 - **No database.** The hosts file is the only source of truth. A timed
   block's end time is stored as a comment inside the sadd section.
 - **Timed blocks** create a systemd transient timer that runs `sadd expire`.

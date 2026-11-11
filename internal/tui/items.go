@@ -63,12 +63,16 @@ func (i groupItem) Description() string {
 	return state + " · " + preview(i.domains, 3)
 }
 
-func groupItems(entries []hosts.Entry) []list.Item {
+// groupItems lists the blocklists first, then the built-in groups.
+func groupItems(entries []hosts.Entry, lists []Blocklist, now time.Time) []list.Item {
 	blocked := make(map[string]bool, len(entries))
 	for _, e := range entries {
 		blocked[e.Domain] = true
 	}
 	var items []list.Item
+	for _, b := range lists {
+		items = append(items, blocklistItem{b, now})
+	}
 	for _, name := range groups.Names() {
 		domains, _ := groups.Get(name)
 		it := groupItem{name: name, domains: domains}

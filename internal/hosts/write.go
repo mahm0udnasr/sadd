@@ -30,6 +30,7 @@ func (f File) Render() string {
 	lines = append(lines, StartMarker)
 	lines = append(lines, f.Block...)
 	lines = append(lines, EndMarker)
+	lines = append(lines, renderLists(f.lists)...)
 	lines = append(lines, f.After...)
 
 	return strings.Join(lines, "\n") + "\n"

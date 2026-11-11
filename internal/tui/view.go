@@ -164,13 +164,22 @@ func (m model) emptyHint() string {
 	if !m.backend.CanWrite {
 		return m.backend.ReadOnlyHint
 	}
+	for _, l := range m.lists {
+		if l.On {
+			return "The " + l.Title + " is on (see Groups). Press a to add sites."
+		}
+	}
 	return "Press a to add sites, or go to Groups."
 }
 
 func (m model) statusLine() string {
 	switch {
 	case m.saving:
-		return m.spinner.View() + dimStyle.Render(" Saving…")
+		text := m.savingText
+		if text == "" {
+			text = "Saving…"
+		}
+		return m.spinner.View() + dimStyle.Render(" "+text)
 	case m.status == "" && len(m.marked) > 0 && m.tab == tabBlocked:
 		return accentStyle.Render(fmt.Sprintf("● %d selected", len(m.marked))) +
 			dimStyle.Render("  d unblock · e extend · esc clear")

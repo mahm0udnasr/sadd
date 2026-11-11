@@ -41,6 +41,10 @@ type File struct {
 	// It is false on the first run; Render then appends a new block at the
 	// end of the file. Only Parse sets it.
 	HasBlock bool
+
+	// lists are the blocklist sections (see lists.go). Render writes them
+	// right after the normal block.
+	lists []List
 }
 
 // Path returns the hosts file to use: $HOSTS_FILE if set, else /etc/hosts.
@@ -64,10 +68,20 @@ func Load(path string) (File, error) {
 	return f, nil
 }
 
-// Parse splits content into Before, Block and After.
-// It does no I/O, which makes it easy to test.
+// Parse splits content into Before, Block and After, and pulls out the
+// blocklist sections. It does no I/O, which makes it easy to test.
 func Parse(content string) (File, error) {
-	lines := splitLines(content)
+	lines, lists, err := extractLists(splitLines(content))
+	if err != nil {
+		return File{}, err
+	}
+	f, err := parseBlock(lines)
+	f.lists = lists
+	return f, err
+}
+
+// parseBlock finds the normal sadd block between the markers.
+func parseBlock(lines []string) (File, error) {
 
 	start, end := -1, -1
 	for i, line := range lines {
