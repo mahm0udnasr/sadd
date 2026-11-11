@@ -6,7 +6,7 @@ import "github.com/charmbracelet/bubbles/key"
 // the WithHelp texts, and disabled bindings are hidden from help
 // automatically, so help always matches what the keys really do.
 type keyMap struct {
-	NextTab, PrevTab, Tab1, Tab2, Tab3 key.Binding
+	NextTab, PrevTab, Tab1, Tab2 key.Binding
 
 	Up, Down, Filter key.Binding
 
@@ -20,9 +20,8 @@ func newKeyMap() keyMap {
 	k := keyMap{
 		NextTab: key.NewBinding(key.WithKeys("tab", "right", "l"), key.WithHelp("tab", "next tab")),
 		PrevTab: key.NewBinding(key.WithKeys("shift+tab", "left", "h"), key.WithHelp("shift+tab", "prev tab")),
-		Tab1:    key.NewBinding(key.WithKeys("1"), key.WithHelp("1-3", "go to tab")),
+		Tab1:    key.NewBinding(key.WithKeys("1"), key.WithHelp("1/2", "go to tab")),
 		Tab2:    key.NewBinding(key.WithKeys("2")),
-		Tab3:    key.NewBinding(key.WithKeys("3")),
 
 		// Up/Down/Filter are handled by the list itself; listed for help.
 		Up:     key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),

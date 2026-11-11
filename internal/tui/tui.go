@@ -1,9 +1,8 @@
 // Package tui is the interactive screen for sadd, built with Charm's stack:
 //
 //	Bubble Tea  the Elm-style loop: Init -> Update(msg) -> View
-//	Bubbles     ready-made components: list, viewport, spinner, help
+//	Bubbles     ready-made components: list, spinner, help
 //	Huh         forms: add sites, pick a duration, confirm (shown as dialogs)
-//	Glamour     renders the About page from Markdown
 //	Lip Gloss   colors and layout
 //
 // It knows nothing about files, sudo, DNS or systemd: it only calls the
@@ -16,7 +15,6 @@
 //	items.go  list items for the Blocked and Groups tabs
 //	forms.go  Huh forms and what happens when they are submitted
 //	dialog.go draws the open form as a centered dialog over the screen
-//	about.go  the Markdown About page
 //	view.go   View and styles
 //	format.go small text helpers shared with the CLI
 package tui
@@ -29,7 +27,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -42,9 +39,6 @@ type BlockRequest struct {
 	For     time.Duration
 }
 
-// InfoRow is one "label: value" line on the About page.
-type InfoRow struct{ Label, Value string }
-
 // Backend is everything the TUI needs from the rest of the program.
 // Each action returns a short status message.
 type Backend struct {
@@ -53,7 +47,6 @@ type Backend struct {
 	Extend  func(domains []string, by time.Duration) (string, error) // timed blocks only
 	Unblock func(domains []string) (string, error)
 	Restore func() (string, error)
-	Info    func() []InfoRow // optional
 
 	// CanWrite is false when changes are impossible (e.g. not running with
 	// sudo). The TUI then shows READ-ONLY and refuses changes up front.
@@ -63,13 +56,7 @@ type Backend struct {
 
 // Run starts the TUI and blocks until the user quits.
 func Run(b Backend) error {
-	m := newModel(b)
-	// Ask the terminal for its background color BEFORE Bubble Tea takes
-	// over the input; asking later can hang or print garbage.
-	if !lipgloss.HasDarkBackground() {
-		m.markdownStyle = "light"
-	}
-	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
+	_, err := tea.NewProgram(newModel(b), tea.WithAltScreen()).Run()
 	return err
 }
 
@@ -78,11 +65,10 @@ type tab int
 const (
 	tabBlocked tab = iota
 	tabGroups
-	tabAbout
 	tabCount // keep last
 )
 
-var tabNames = [tabCount]string{"Blocked", "Groups", "About"}
+var tabNames = [tabCount]string{"Blocked", "Groups"}
 
 type model struct {
 	backend Backend
@@ -94,14 +80,11 @@ type model struct {
 	width, height int
 
 	entries []hosts.Entry
-	info    []InfoRow
 	now     time.Time
 	marked  map[string]bool // sites selected with space (Blocked tab)
 
-	blockedList   list.Model
-	groupList     list.Model
-	about         viewport.Model
-	markdownStyle string // Glamour style: "dark" or "light"
+	blockedList list.Model
+	groupList   list.Model
 
 	// The open Huh form, if any. Its values live in *formData on the heap:
 	// Bubble Tea copies the model on every Update, so pointers into the
@@ -121,7 +104,6 @@ type model struct {
 type (
 	loadedMsg struct {
 		entries []hosts.Entry
-		info    []InfoRow
 		err     error
 	}
 	doneMsg struct {
@@ -145,15 +127,13 @@ func newModel(b Backend) model {
 	h.Styles.FullSeparator = dimStyle
 
 	m := model{
-		backend:       b,
-		keys:          newKeyMap(),
-		help:          h,
-		spinner:       sp,
-		now:           time.Now(),
-		blockedList:   newList("site", "sites"),
-		groupList:     newList("group", "groups"),
-		about:         viewport.New(80, 20),
-		markdownStyle: "dark",
+		backend:     b,
+		keys:        newKeyMap(),
+		help:        h,
+		spinner:     sp,
+		now:         time.Now(),
+		blockedList: newList("site", "sites"),
+		groupList:   newList("group", "groups"),
 	}
 	m.groupList.SetItems(groupItems(nil))
 	m.keys.update(tabBlocked, b.CanWrite) // hide change keys in read-only mode
@@ -168,11 +148,7 @@ func (m model) Init() tea.Cmd {
 func (m model) load() tea.Cmd {
 	return func() tea.Msg {
 		entries, err := m.backend.Load()
-		var info []InfoRow
-		if m.backend.Info != nil {
-			info = m.backend.Info()
-		}
-		return loadedMsg{entries, info, err}
+		return loadedMsg{entries, err}
 	}
 }
 
@@ -196,13 +172,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, m.setStatus(msg.err.Error(), true)
 		}
-		m.entries, m.info, m.now = msg.entries, msg.info, time.Now()
+		m.entries, m.now = msg.entries, time.Now()
 		m.pruneMarks()
 		cmds := []tea.Cmd{
 			m.blockedList.SetItems(entryItems(m.entries, m.now, m.marked)),
 			m.groupList.SetItems(groupItems(m.entries)),
 		}
-		m.renderAbout()
 		return m, tea.Batch(cmds...)
 
 	case doneMsg:
@@ -275,8 +250,6 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.switchTab(tabBlocked), nil
 	case key.Matches(msg, m.keys.Tab2):
 		return m.switchTab(tabGroups), nil
-	case key.Matches(msg, m.keys.Tab3):
-		return m.switchTab(tabAbout), nil
 	case key.Matches(msg, m.keys.Help):
 		m.help.ShowAll = !m.help.ShowAll
 		m.resize(m.width, m.height) // full help is taller
@@ -338,7 +311,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // updateActive passes a message to the component of the current tab
-// (list navigation and filtering, or viewport scrolling).
+// (list navigation and filtering).
 func (m model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.tab {
@@ -346,8 +319,6 @@ func (m model) updateActive(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.blockedList, cmd = m.blockedList.Update(msg)
 	case tabGroups:
 		m.groupList, cmd = m.groupList.Update(msg)
-	case tabAbout:
-		m.about, cmd = m.about.Update(msg)
 	}
 	return m, cmd
 }

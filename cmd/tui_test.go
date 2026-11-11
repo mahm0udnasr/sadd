@@ -57,18 +57,6 @@ func TestTUIBackendBlockUnblock(t *testing.T) {
 	}
 }
 
-func TestTUIInfo(t *testing.T) {
-	path := tempHosts(t)
-	rows := tuiInfo(path)
-	if rows[0].Value != path || rows[1].Value != "read-write" || !strings.HasPrefix(rows[2].Value, "none yet") {
-		t.Errorf("rows = %+v", rows)
-	}
-	tuiBlock(tui.BlockRequest{Domains: []string{"x.com"}}) // creates the backup
-	if rows := tuiInfo(path); !strings.Contains(rows[2].Value, "saved") {
-		t.Errorf("backup row = %q", rows[2].Value)
-	}
-}
-
 func TestCanWrite(t *testing.T) {
 	path := tempHosts(t)
 	if !canWrite(path) {

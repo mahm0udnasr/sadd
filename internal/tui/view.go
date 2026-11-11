@@ -55,8 +55,6 @@ func (m *model) resize(w, h int) {
 	bodyH := max(h-m.chromeHeight(), 3)
 	m.blockedList.SetSize(m.innerWidth(), bodyH)
 	m.groupList.SetSize(m.innerWidth(), bodyH)
-	m.about.Width, m.about.Height = m.innerWidth(), bodyH
-	m.renderAbout()
 }
 
 // helpView is the key help, cut to the screen width. (bubbles/help v1.0.0
@@ -87,8 +85,6 @@ func (m model) screen() string {
 		body = m.blockedList.View()
 	case m.tab == tabGroups:
 		body = m.groupList.View()
-	case m.tab == tabAbout:
-		body = m.about.View()
 	}
 	// Keep the footer at the same place on every tab.
 	body = lipgloss.NewStyle().Height(m.bodyHeight()).MaxHeight(m.bodyHeight()).Render(body)
@@ -197,18 +193,6 @@ func (m model) timedCount() int {
 		}
 	}
 	return n
-}
-
-// nextExpiry returns the timed entry that ends first.
-func (m model) nextExpiry() (hosts.Entry, bool) {
-	var next hosts.Entry
-	found := false
-	for _, e := range m.entries {
-		if e.Timed() && (!found || e.Until.Before(next.Until)) {
-			next, found = e, true
-		}
-	}
-	return next, found
 }
 
 // parseDomains normalizes space-separated input. It returns the valid

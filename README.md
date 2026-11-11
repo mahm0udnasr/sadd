@@ -26,8 +26,8 @@ instagram.com  forever
   `sadd groups` to see what each one contains.
 - **`check`** asks the system resolver (the one your browser uses) whether a
   site really resolves to `0.0.0.0` / `::`.
-- **Interactive TUI:** just run `sudo sadd` (or `sudo sadd tui`). It has tabs for blocked sites, groups and
-  an About page. Changes happen in centered dialogs, and adding sites has a live preview.
+- **Interactive TUI:** just run `sudo sadd` (or `sudo sadd tui`). It has tabs for blocked sites and groups.
+  Changes happen in centered dialogs, and adding sites has a live preview.
   `enter` shows a site's details, `space` selects several sites to unblock or extend at once, and
   `e` adds time to a timed block. Any duration picker has a **Custom…** option (`45m`, `1h30m`, `2d`).
   Without sudo it opens read-only.
@@ -74,7 +74,7 @@ sudo make uninstall
 | `sadd groups` | Show the built-in groups |
 | `sudo sadd restore` | Undo the last change (run it again to redo) |
 | `sadd check [domain]...` | Ask the system what a site resolves to; exit code 1 if any is not blocked |
-| `sudo sadd` | Interactive screen (same as `sadd tui`): Blocked · Groups · About (`tab` or `1`-`3` to switch) |
+| `sudo sadd` | Interactive screen (same as `sadd tui`): Blocked · Groups (`tab` or `1`/`2` to switch) |
 
 Each domain is blocked for IPv4 and IPv6, with and without `www.`:
 

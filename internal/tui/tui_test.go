@@ -63,7 +63,6 @@ func (f *fake) backend(canWrite bool) Backend {
 			return "Unblocked.", nil
 		},
 		Restore: func() (string, error) { f.restored = true; return "Restored.", nil },
-		Info:    func() []InfoRow { return []InfoRow{{"Hosts file", "/tmp/hosts"}} },
 	}
 }
 
@@ -163,9 +162,13 @@ func TestTabs(t *testing.T) {
 	if m.tab != tabGroups {
 		t.Fatalf("tab = %v, want Groups", m.tab)
 	}
-	m = keys(m, "shift+tab", "shift+tab") // wraps to the last tab
-	if m.tab != tabAbout {
-		t.Fatalf("tab = %v, want About", m.tab)
+	m = keys(m, "tab") // wraps around to the first tab
+	if m.tab != tabBlocked {
+		t.Fatalf("tab = %v, want Blocked", m.tab)
+	}
+	m = keys(m, "shift+tab") // and back to the last
+	if m.tab != tabGroups {
+		t.Fatalf("tab = %v, want Groups", m.tab)
 	}
 	m = keys(m, "1")
 	if m.tab != tabBlocked {
@@ -322,18 +325,6 @@ func TestFilterKeysDoNotTriggerActions(t *testing.T) {
 	}
 }
 
-func TestAboutPage(t *testing.T) {
-	f := &fake{entries: []hosts.Entry{{Domain: "youtube.com", Until: time.Now().Add(time.Hour)}}}
-	m := start(t, f, true)
-	m = keys(m, "3")
-	v := m.View()
-	for _, want := range []string{"Hosts file", "/tmp/hosts", "Next unblock", "youtube.com"} {
-		if !strings.Contains(v, want) {
-			t.Errorf("About missing %q:\n%s", want, v)
-		}
-	}
-}
-
 // The layout must fit the terminal exactly: never taller (it would
 // scroll) and never wider (lines would wrap).
 func TestViewFitsTerminal(t *testing.T) {
@@ -347,7 +338,6 @@ func TestViewFitsTerminal(t *testing.T) {
 		screens := map[string]model{
 			"blocked": keys(m, "1"),
 			"groups":  keys(m, "2"),
-			"about":   keys(m, "3"),
 			"form":    keys(m, "1", "a"),
 			"details": keys(m, "1", "enter"),
 			"extend":  keys(m, "1", "e"),

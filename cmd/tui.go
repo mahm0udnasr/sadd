@@ -40,7 +40,6 @@ func runTUI() error {
 		Extend:  tuiExtend,
 		Unblock: tuiUnblock,
 		Restore: func() (string, error) { return tuiRestore(path) },
-		Info:    func() []tui.InfoRow { return tuiInfo(path) },
 	})
 }
 
@@ -108,24 +107,6 @@ func tuiRestore(path string) (string, error) {
 		msg += " Warning: " + err.Error()
 	}
 	return msg, nil
-}
-
-// tuiInfo is the file-related part of the Info tab; the TUI adds counts.
-func tuiInfo(path string) []tui.InfoRow {
-	mode := "read-write"
-	if !canWrite(path) {
-		mode = "read-only (run with sudo to change)"
-	}
-	backup := "none yet (made before the first change)"
-	if st, err := os.Stat(hosts.BackupPath(path)); err == nil {
-		backup = hosts.BackupPath(path) + ", saved " + st.ModTime().Format("Mon Jan 2 15:04")
-	}
-	return []tui.InfoRow{
-		{Label: "Hosts file", Value: path},
-		{Label: "Mode", Value: mode},
-		{Label: "Backup", Value: backup},
-		{Label: "Version", Value: version},
-	}
 }
 
 // summary names one site, or counts several.
