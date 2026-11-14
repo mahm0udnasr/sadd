@@ -1,3 +1,6 @@
 # Built binary (only at the repo root; keep cmd/ and others)
 /sadd
 *.tmp
+
+# VHS needs an output for the screenshots tape; only the PNGs are kept
+/docs/tapes/screenshots.gif
